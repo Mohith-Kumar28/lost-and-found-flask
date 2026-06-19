@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Lost & Found{% endblock %}</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav-bar">
+        <div>
+          <p class="eyebrow">Class 3 Flask Project</p>
+          <h1 class="brand-title">Lost & Found</h1>
+        </div>
+
+        <nav class="nav-links">
+          <a href="{{ url_for('index') }}">Submit Item</a>
+          <a href="{{ url_for('items') }}">View Items</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container page-content">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

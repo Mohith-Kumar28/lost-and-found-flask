@@ -1,0 +1,20 @@
+[
+  {
+    "id": "a16594fc0a5b430baeb0a52e28d9358f",
+    "name": "tets item",
+    "description": "test description",
+    "found_location": "library",
+    "found_date": "2026-06-20",
+    "photo_filename": "ef94361c1af747319a2b6e6288f43448.png",
+    "created_at": "2026-06-19T11:02:07"
+  },
+  {
+    "id": "aa1c375bf9674a37a8042d32271498a0",
+    "name": "Black water bottle",
+    "description": "Black metal water bottle with a small sticker on the side.",
+    "found_location": "School library",
+    "found_date": "2026-06-19",
+    "photo_filename": "addf7d97232a4139a1f1ec81447326d3.png",
+    "created_at": "2026-06-19T10:51:51"
+  }
+]

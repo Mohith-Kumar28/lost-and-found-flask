@@ -1,0 +1,86 @@
+{% extends "base.html" %} {% block title %}Submit Item | Lost & Found{% endblock
+%} {% block content %}
+<section class="hero-card">
+  <div>
+    <p class="section-label">Submit a found item</p>
+    <h2>Save item details to your Flask app</h2>
+    <p class="hero-text">
+      This page lets students add a found item with a name, description, photo,
+      location, and date. When the form is submitted, Flask stores the
+      information in a local JSON file.
+    </p>
+  </div>
+
+  <a class="secondary-button" href="{{ url_for('items') }}"
+    >See all saved items</a
+  >
+</section>
+
+<section class="card form-card">
+  <h3 class="card-title">Found Item Form</h3>
+
+  {% if error %}
+  <div class="message error-message">{{ error }}</div>
+  {% endif %}
+
+  <form
+    action="{{ url_for('submit_item') }}"
+    method="post"
+    enctype="multipart/form-data"
+    class="item-form"
+  >
+    <label>
+      Item name
+      <input
+        type="text"
+        name="name"
+        placeholder="Example: Black water bottle"
+        value="{{ form_data.get('name', '') }}"
+        required
+      />
+    </label>
+
+    <label>
+      Description
+      <textarea
+        name="description"
+        rows="4"
+        placeholder="Describe the item clearly so the owner can recognize it."
+        required
+      >
+{{ form_data.get('description', '') }}</textarea
+      >
+    </label>
+
+    <div class="two-column-grid">
+      <label>
+        Where was it found?
+        <input
+          type="text"
+          name="found_location"
+          placeholder="Example: Library table"
+          value="{{ form_data.get('found_location', '') }}"
+          required
+        />
+      </label>
+
+      <label>
+        Found date
+        <input
+          type="date"
+          name="found_date"
+          value="{{ form_data.get('found_date', '') }}"
+          required
+        />
+      </label>
+    </div>
+
+    <label>
+      Upload a photo
+      <input type="file" name="photo" accept="image/*" required />
+    </label>
+
+    <button class="primary-button" type="submit">Save item</button>
+  </form>
+</section>
+{% endblock %}

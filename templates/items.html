@@ -1,0 +1,43 @@
+{% extends "base.html" %} {% block title %}Saved Items | Lost & Found{% endblock
+%} {% block content %}
+<section class="hero-card">
+  <div>
+    <p class="section-label">Items listing</p>
+    <h2>All saved found items</h2>
+    <p class="hero-text">
+      Every submitted item appears here. This helps students understand that
+      data is being loaded back from the server and shown on the page.
+    </p>
+  </div>
+
+  <a class="secondary-button" href="{{ url_for('index') }}">Add another item</a>
+</section>
+
+{% if just_added %}
+<div class="message success-message">Item saved successfully.</div>
+{% endif %} {% if items %}
+<section class="items-grid">
+  {% for item in items %}
+  <article class="card item-card">
+    <img
+      src="{{ url_for('static', filename='uploads/' ~ item.photo_filename) }}"
+      alt="Photo of {{ item.name }}"
+      class="item-image"
+    />
+
+    <div class="item-details">
+      <h3>{{ item.name }}</h3>
+      <p class="item-description">{{ item.description }}</p>
+      <p><strong>Found at:</strong> {{ item.found_location }}</p>
+      <p><strong>Date:</strong> {{ item.found_date }}</p>
+      <p class="small-text">Saved on {{ item.created_at }}</p>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% else %}
+<section class="card empty-state">
+  <h3>No items yet</h3>
+  <p>Submit the first item from the form page and it will show up here.</p>
+</section>
+{% endif %} {% endblock %}
