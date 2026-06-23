@@ -66,7 +66,9 @@ a {
 
 .nav-links a,
 .secondary-button,
-.primary-button {
+.primary-button,
+.danger-button,
+.icon-button {
   border-radius: 999px;
   padding: 12px 18px;
   font-weight: 700;
@@ -79,7 +81,9 @@ a {
 
 .nav-links a:hover,
 .secondary-button:hover,
-.primary-button:hover {
+.primary-button:hover,
+.danger-button:hover,
+.icon-button:hover {
   transform: translateY(-1px);
 }
 
@@ -138,9 +142,31 @@ a {
   background: var(--primary-dark);
 }
 
+.danger-button {
+  border: none;
+  background: #d93b3b;
+  color: white;
+  cursor: pointer;
+}
+
+.danger-button:hover {
+  background: #b42c2c;
+}
+
+.icon-button {
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+
 .form-card,
-.empty-state {
+.empty-state,
+.filter-card {
   padding: 28px;
+}
+
+.filter-card {
+  margin-bottom: 24px;
 }
 
 .item-form {
@@ -148,14 +174,17 @@ a {
   gap: 18px;
 }
 
-.item-form label {
+.item-form label,
+.filter-form label {
   display: grid;
   gap: 8px;
   font-weight: 700;
 }
 
 .item-form input,
-.item-form textarea {
+.item-form textarea,
+.filter-form input,
+.filter-form select {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--border);
@@ -166,9 +195,32 @@ a {
 }
 
 .item-form input:focus,
-.item-form textarea:focus {
+.item-form textarea:focus,
+.filter-form input:focus,
+.filter-form select:focus {
   outline: 3px solid rgba(36, 86, 211, 0.15);
   border-color: var(--primary);
+}
+
+.filter-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.filter-actions,
+.item-actions,
+.dialog-actions,
+.dialog-header {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-actions {
+  align-self: end;
 }
 
 .two-column-grid {
@@ -235,6 +287,34 @@ a {
   font-size: 0.92rem;
 }
 
+.item-actions {
+  margin-top: 16px;
+}
+
+.item-actions form {
+  margin: 0;
+}
+
+.edit-dialog {
+  width: min(700px, calc(100% - 20px));
+  border: none;
+  border-radius: 24px;
+  padding: 0;
+  box-shadow: var(--shadow);
+}
+
+.edit-dialog::backdrop {
+  background: rgba(15, 30, 60, 0.45);
+}
+
+.edit-dialog .item-form {
+  padding: 24px;
+}
+
+.dialog-header h3 {
+  margin: 0;
+}
+
 @media (max-width: 720px) {
   .nav-bar,
   .hero-card {
@@ -243,6 +323,10 @@ a {
   }
 
   .two-column-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-form {
     grid-template-columns: 1fr;
   }
 

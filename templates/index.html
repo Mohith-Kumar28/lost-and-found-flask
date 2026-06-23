@@ -1,23 +1,25 @@
-{% extends "base.html" %} {% block title %}Submit Item | Lost & Found{% endblock
-%} {% block content %}
+{% extends "base.html" %}
+{% block title %}Submit Item | Lost & Found{% endblock %}
+{% block content %}
 <section class="hero-card">
   <div>
     <p class="section-label">Submit a found item</p>
     <h2>Save item details to your Flask app</h2>
     <p class="hero-text">
-      This page lets students add a found item with a name, description, photo,
-      location, and date. When the form is submitted, Flask stores the
-      information in a local JSON file.
+      This page is only for adding a new item. After saving, the app opens a
+      separate page to show all saved items.
     </p>
   </div>
 
-  <a class="secondary-button" href="{{ url_for('items') }}"
-    >See all saved items</a
-  >
+  <a class="secondary-button" href="{{ url_for('items') }}">See items</a>
 </section>
 
 <section class="card form-card">
   <h3 class="card-title">Found Item Form</h3>
+  <p class="small-text">
+    {% if using_cloudinary %}Cloudinary is ready for image upload.{% else %}Add
+    Cloudinary keys to save images.{% endif %}
+  </p>
 
   {% if error %}
   <div class="message error-message">{{ error }}</div>
@@ -47,9 +49,7 @@
         rows="4"
         placeholder="Describe the item clearly so the owner can recognize it."
         required
-      >
-{{ form_data.get('description', '') }}</textarea
-      >
+      >{{ form_data.get('description', '') }}</textarea>
     </label>
 
     <div class="two-column-grid">

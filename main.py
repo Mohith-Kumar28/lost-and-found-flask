@@ -1,5 +1,5 @@
-from app import app, ensure_storage_exists
+from app import app, setup_app
 
 if __name__ == "__main__":
-    ensure_storage_exists()
+    setup_app()
     app.run(debug=True)

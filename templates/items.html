@@ -1,26 +1,67 @@
-{% extends "base.html" %} {% block title %}Saved Items | Lost & Found{% endblock
-%} {% block content %}
+{% extends "base.html" %}
+{% block title %}Saved Items | Lost & Found{% endblock %}
+{% block content %}
 <section class="hero-card">
   <div>
     <p class="section-label">Items listing</p>
     <h2>All saved found items</h2>
     <p class="hero-text">
-      Every submitted item appears here. This helps students understand that
-      data is being loaded back from the server and shown on the page.
+      This page shows the saved items. Students can search, filter, edit, and
+      delete items here.
     </p>
   </div>
 
   <a class="secondary-button" href="{{ url_for('index') }}">Add another item</a>
 </section>
 
-{% if just_added %}
-<div class="message success-message">Item saved successfully.</div>
-{% endif %} {% if items %}
+{% if message %}
+<div class="message success-message">{{ message }}</div>
+{% endif %}
+
+<section class="card filter-card">
+  <h3 class="card-title">Search and filters</h3>
+
+  <form action="{{ url_for('items') }}" method="get" class="filter-form">
+    <label>
+      Search
+      <input
+        type="text"
+        name="search"
+        placeholder="Search name, description, or place"
+        value="{{ filters.search }}"
+      />
+    </label>
+
+    <label>
+      Place
+      <select name="location">
+        <option value="">All places</option>
+        {% for location in locations %}
+        <option value="{{ location }}" {% if filters.location == location %}selected{% endif %}>
+          {{ location }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Date
+      <input type="date" name="found_date" value="{{ filters.found_date }}" />
+    </label>
+
+    <div class="filter-actions">
+      <button class="primary-button" type="submit">Search</button>
+      <a class="secondary-button" href="{{ url_for('items') }}">Clear</a>
+    </div>
+  </form>
+</section>
+
+{% if items %}
 <section class="items-grid">
   {% for item in items %}
   <article class="card item-card">
     <img
-      src="{{ url_for('static', filename='uploads/' ~ item.photo_filename) }}"
+      src="{{ item.photo_url }}"
       alt="Photo of {{ item.name }}"
       class="item-image"
     />
@@ -30,14 +71,117 @@
       <p class="item-description">{{ item.description }}</p>
       <p><strong>Found at:</strong> {{ item.found_location }}</p>
       <p><strong>Date:</strong> {{ item.found_date }}</p>
-      <p class="small-text">Saved on {{ item.created_at }}</p>
+      <p class="small-text">{{ item.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
+
+      <div class="item-actions">
+        <button
+          class="secondary-button"
+          type="button"
+          data-open-modal="edit-modal-{{ item.id }}"
+        >
+          Edit
+        </button>
+
+        <form action="{{ url_for('delete_item', item_id=item.id) }}" method="post">
+          <button class="danger-button" type="submit">Delete</button>
+        </form>
+      </div>
     </div>
   </article>
+
+  <dialog class="edit-dialog" id="edit-modal-{{ item.id }}">
+    <form
+      action="{{ url_for('edit_item', item_id=item.id) }}"
+      method="post"
+      enctype="multipart/form-data"
+      class="item-form"
+    >
+      <div class="dialog-header">
+        <h3>Edit item</h3>
+        <button
+          class="icon-button"
+          type="button"
+          data-close-modal="edit-modal-{{ item.id }}"
+        >
+          Close
+        </button>
+      </div>
+
+      <label>
+        Item name
+        <input type="text" name="name" value="{{ item.name }}" required />
+      </label>
+
+      <label>
+        Description
+        <textarea name="description" rows="4" required>{{ item.description }}</textarea>
+      </label>
+
+      <div class="two-column-grid">
+        <label>
+          Where was it found?
+          <input
+            type="text"
+            name="found_location"
+            value="{{ item.found_location }}"
+            required
+          />
+        </label>
+
+        <label>
+          Found date
+          <input
+            type="date"
+            name="found_date"
+            value="{{ item.found_date }}"
+            required
+          />
+        </label>
+      </div>
+
+      <label>
+        Replace photo
+        <input type="file" name="photo" accept="image/*" />
+      </label>
+
+      <div class="dialog-actions">
+        <button class="primary-button" type="submit">Save changes</button>
+        <button
+          class="secondary-button"
+          type="button"
+          data-close-modal="edit-modal-{{ item.id }}"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  </dialog>
   {% endfor %}
 </section>
 {% else %}
 <section class="card empty-state">
   <h3>No items yet</h3>
-  <p>Submit the first item from the form page and it will show up here.</p>
+  <p>Save the first item from the form page and it will show up here.</p>
 </section>
-{% endif %} {% endblock %}
+{% endif %}
+
+<script>
+  document.querySelectorAll("[data-open-modal]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const dialog = document.getElementById(button.dataset.openModal);
+      if (dialog) {
+        dialog.showModal();
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-close-modal]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const dialog = document.getElementById(button.dataset.closeModal);
+      if (dialog) {
+        dialog.close();
+      }
+    });
+  });
+</script>
+{% endblock %}
