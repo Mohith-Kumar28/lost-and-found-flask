@@ -1,153 +1,172 @@
-# Class 5 Plan
+# Lost Item Match Plan
 
 ## Goal
 
-Add simple Class 5 features to the Flask lost-and-found app:
-
-- add a `contact` field for phone number or email
-- use OpenAI to read the uploaded image
-- auto-fill item details from the image in a simple way
-- keep the app easy for students to understand
-- create a new `class5-README.md` without replacing the older README files
+Add a new page where a student can report a lost item and get AI-assisted suggested matches from the found items already saved in the app.
 
 ## Recommended Approach
 
-Keep the current two-page flow:
+Keep the current found-item flow as it is:
 
-- `/` stays the add item page
-- `/items` stays the items list page
+- `/` for reporting a found item
+- `/items` for viewing found items
 
-Use a very small AI flow:
+Add one new lost-item workflow:
 
-- student uploads an image on the add page
-- student clicks a small `Auto Fill With AI` button
-- Flask uploads the image to Cloudinary first
-- Flask sends the hosted image URL to OpenAI
-- OpenAI returns simple JSON with fields like `name`, `description`, and `found_location`
-- Flask sends those values back to the page
-- the form fields get filled automatically
-- student can still edit the text before saving
+- `/lost-report` shows a simple form
+- `/lost-report/matches` checks the report and shows possible found-item matches
 
-This keeps the app simple and matches the user request better than generating the text only after save.
+To keep the code easy to understand:
+
+- do not add a new saved database table for lost reports in version 1
+- use the lost report only as temporary form data
+- use AI only to normalize and clean the lost report
+- use simple Python scoring to rank matches against saved found items
 
 ## Files To Change
 
 - `/Users/mohithkumar/Desktop/flask/app.py`
-- `/Users/mohithkumar/Desktop/flask/templates/index.html`
-- `/Users/mohithkumar/Desktop/flask/templates/items.html`
+- `/Users/mohithkumar/Desktop/flask/templates/base.html`
+- `/Users/mohithkumar/Desktop/flask/templates/lost_report.html`
+- `/Users/mohithkumar/Desktop/flask/templates/match_results.html`
 - `/Users/mohithkumar/Desktop/flask/tests/test_app.py`
-- `/Users/mohithkumar/Desktop/flask/pyproject.toml`
-- `/Users/mohithkumar/Desktop/flask/.env.example`
-- `/Users/mohithkumar/Desktop/flask/.env`
 - `/Users/mohithkumar/Desktop/flask/class5-README.md`
+- `/Users/mohithkumar/Desktop/flask/.env.example`
 
 ## Backend Changes
 
-1. Add `contact` to the `Item` model in `app.py`.
-2. Add a small helper to check if the OpenAI key exists.
-3. Add a helper that uploads the chosen image to Cloudinary and returns a URL.
-4. Add a helper that sends the image URL to OpenAI and asks for very short structured data:
-   - `name`
-   - `description`
-   - `found_location`
-   - optional `category`
-5. Add a new route like `POST /autofill`:
-   - accept uploaded image
-   - validate image
-   - require Cloudinary + OpenAI keys
-   - upload image to Cloudinary
-   - call OpenAI vision
-   - return JSON with suggested values and the image URL
-6. Keep `/submit` as the final save route:
-   - accept normal fields
-   - accept `contact`
-   - require a photo or a previously generated `photo_url`
-   - save the item to the database
-7. Update `/items/<item_id>/edit` to support editing `contact`.
+### `app.py`
 
-## Frontend Changes
+Add a small set of new helpers:
 
-### `index.html`
+- `normalize_lost_report_with_ai(form_data)`
+- `extract_keywords(text)`
+- `score_match(lost_report, item)`
+- `find_suggested_matches(lost_report)`
 
-- keep the form simple
-- add a `contact` input with one label like `Contact (phone or email)`
-- add one small `Auto Fill With AI` button near the photo input
-- add a hidden field for `photo_url`
-- add very small JavaScript:
-  - send the image to `/autofill`
-  - receive JSON
-  - put AI values into the form
-  - keep the form editable
-  - show a small message if AI fails
+Add new routes:
 
-### `items.html`
+- `GET /lost-report`
+- `POST /lost-report/matches`
 
-- show `contact` in each item card
-- add `contact` to the edit modal
-- optionally show an `AI Note` only if the code stores one, but skip this if it adds clutter
+Recommended route flow:
 
-## Data Design
+1. student opens `/lost-report`
+2. student fills lost item details
+3. Flask validates the form
+4. Flask optionally uses OpenAI to normalize the text
+5. Flask compares the lost report with saved `Item` rows
+6. Flask sorts matches by score
+7. Flask renders a results page with top matches
 
-Keep the database simple. Recommended fields:
+## Matching Logic
 
-- `id`
+Use easy-to-read rule-based scoring first:
+
+- item name similarity
+- description keyword overlap
+- similar location
+- same or nearby date
+- optional color/category match if AI extracts them
+
+Keep the matching simple and readable inside Python.
+
+Example scoring idea:
+
+- `+4` for very similar name
+- `+2` for keyword overlap
+- `+2` for same location
+- `+1` for same date
+
+Only show the best 3 to 5 results.
+
+## AI Usage
+
+Use OpenAI to normalize the lost report into structured fields, not to search the whole database directly.
+
+Suggested structured fields:
+
 - `name`
-- `description`
-- `found_location`
-- `found_date`
-- `contact`
-- `photo_url`
-- `created_at`
+- `normalized_description`
+- `category`
+- `color`
+- `keywords`
 
-Do not add too many AI-specific columns in the first version.
+If AI fails or the key is missing:
 
-## OpenAI Design
+- fall back to plain text matching
+- still show results if possible
 
-Use the OpenAI API with a very small prompt asking for beginner-friendly structured output.
+This keeps the feature useful even without AI.
 
-Recommended behavior:
+## Template Changes
 
-- if AI succeeds, fill the form
-- if AI fails, show a soft error and let the student fill the form manually
-- do not block the whole app because AI is an extra feature
+### `base.html`
 
-## Simplicity Rules
+Add a new navigation link:
 
-- keep logic mostly inside `app.py`
-- use only a few helper functions with clear names
-- avoid adding migrations or advanced architecture
-- add clear comments only where needed
-- prefer simple validation messages
+- `Report Lost Item`
 
-## Documentation Changes
+### `lost_report.html`
 
-Create `/Users/mohithkumar/Desktop/flask/class5-README.md` and explain:
+Create a simple form with:
 
-- the new `contact` field
-- OpenAI API key
-- what AI autofill means
-- how the image is read
-- what Cloudinary still does
-- what environment variables do
-- how external APIs work
-- how the autofill route works
-- code snippets for the new AI flow
+- name
+- description
+- lost location
+- lost date
+- contact
+- optional photo
 
-Do not replace `class4-README.md`.
+Submit button:
+
+- `Find Possible Matches`
+
+### `match_results.html`
+
+Show:
+
+- the lost-item summary
+- AI-normalized summary if available
+- top suggested found-item matches
+- contact details from found items
+- empty state if nothing matches well
+
+## Tests
+
+Extend `tests/test_app.py` with:
+
+- lost report page loads
+- valid lost report returns results page
+- similar found item appears in the matches
+- no-match case shows a safe message
+- AI failure falls back to normal matching
+
+Keep mocking style similar to the current Cloudinary/OpenAI tests.
+
+## Documentation
+
+Update `class5-README.md` to explain:
+
+- the new lost-item page
+- how AI matching works
+- the difference between AI autofill and AI matching
+- how fallback matching works without AI
+- new route examples and page flow
+
+Update `.env.example` to document:
+
+- `OPENAI_VISION_MODEL`
+- optional `OPENAI_MATCH_MODEL` if a separate model is used
 
 ## Verification
 
-1. Run dependency install.
-2. Run the Flask app.
-3. Test manual upload and save.
-4. Test AI autofill from image.
-5. Edit the auto-filled values and save.
-6. Confirm `/items` shows contact info.
-7. Edit and delete still work.
-8. Run the unit tests.
-9. Add or update tests for:
-   - contact field save
-   - AI autofill JSON response
-   - final submit after autofill
-   - edit contact field
+1. Run `uv sync`
+2. Run `uv run python app.py`
+3. Open the found-item page and save some sample found items
+4. Open `/lost-report`
+5. Submit a lost report similar to one of the found items
+6. Confirm matching results appear
+7. Confirm the app still works when AI matching is mocked or unavailable
+8. Run `uv run python -m unittest discover -s tests`
 

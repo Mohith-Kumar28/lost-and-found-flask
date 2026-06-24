@@ -95,6 +95,12 @@ class LostFoundAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Found Item Form", response.data)
 
+    def test_lost_report_page_loads(self):
+        response = self.client.get("/lost-report")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Lost Item Form", response.data)
+
     def test_submit_item_saves_in_database(self):
         response = self.submit_item(
             "Blue notebook",
@@ -226,6 +232,56 @@ class LostFoundAppTests(unittest.TestCase):
             saved_item = self.app_module.Item.query.first()
             self.assertEqual(saved_item.photo_url, "https://example.com/ai-item.png")
             self.assertEqual(saved_item.contact, "kid@example.com")
+
+    def test_lost_report_matches_a_similar_found_item(self):
+        self.submit_item(
+            "Black water bottle",
+            "Black bottle with a sticker on it.",
+            "Library",
+            "2026-06-20",
+            "9876543210",
+        )
+
+        with mock.patch.object(
+            self.app_module,
+            "normalize_lost_report_with_ai",
+            return_value={
+                "name": "Black water bottle",
+                "normalized_description": "Black bottle with sticker",
+                "category": "bottle",
+                "color": "black",
+                "keywords": ["black", "bottle", "sticker", "library"],
+            },
+        ):
+            response = self.client.post(
+                "/lost-report/matches",
+                data={
+                    "name": "Water bottle",
+                    "description": "I lost my black bottle with a sticker.",
+                    "lost_location": "Library",
+                    "lost_date": "2026-06-20",
+                    "contact": "kid@example.com",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Black water bottle", response.data)
+        self.assertIn(b"Strong match", response.data)
+
+    def test_lost_report_shows_empty_state_when_no_match_exists(self):
+        response = self.client.post(
+            "/lost-report/matches",
+            data={
+                "name": "Green pencil box",
+                "description": "A green pencil box with cartoon stickers.",
+                "lost_location": "Classroom",
+                "lost_date": "2026-06-25",
+                "contact": "kid@example.com",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"No strong matches yet", response.data)
 
 
 if __name__ == "__main__":

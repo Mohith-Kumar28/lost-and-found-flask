@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Possible Matches | Lost & Found{% endblock %}
+{% block content %}
+<section class="hero-card lost-hero-card results-hero-card">
+  <div class="lost-hero-copy">
+    <p class="section-label">Suggested matches</p>
+    <h2>Possible found items for this report</h2>
+    <p class="hero-text">
+      The app cleaned the lost report, checked it against saved found items,
+      and ranked the strongest matches first.
+    </p>
+
+    <div class="lost-hero-chips">
+      <span class="info-chip">Lost report summary</span>
+      <span class="info-chip">AI helper view</span>
+      <span class="info-chip">{{ matches|length }} match{% if matches|length != 1 %}es{% endif %}</span>
+    </div>
+  </div>
+
+  <div class="lost-hero-side">
+    <div class="mini-status-card">
+      <p class="mini-status-label">Result summary</p>
+      <p class="mini-status-value">
+        {% if matches %}{{ matches|length }} item{% if matches|length != 1 %}s{% endif %} found{% else %}No close matches{% endif %}
+      </p>
+      <p class="small-text">
+        {% if matches %}Open the cards below and compare the details carefully.{% else %}
+        Try again later after more found items are added.{% endif %}
+      </p>
+    </div>
+
+    <a class="secondary-button" href="{{ url_for('lost_report') }}">Report Another Lost Item</a>
+  </div>
+</section>
+
+<section class="results-summary-grid">
+  <article class="card summary-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="section-label">Your report</p>
+        <h3 class="card-title">Lost Item Summary</h3>
+      </div>
+      <span class="soft-badge">Original details</span>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-box">
+        <span class="detail-label">Name</span>
+        <p>{{ report.name }}</p>
+      </div>
+      <div class="detail-box">
+        <span class="detail-label">Lost At</span>
+        <p>{{ report.lost_location }}</p>
+      </div>
+      <div class="detail-box">
+        <span class="detail-label">Lost Date</span>
+        <p>{{ report.lost_date }}</p>
+      </div>
+      <div class="detail-box">
+        <span class="detail-label">Contact</span>
+        <p>{{ report.contact }}</p>
+      </div>
+      <div class="detail-box detail-box-wide">
+        <span class="detail-label">Description</span>
+        <p>{{ report.description }}</p>
+      </div>
+    </div>
+  </article>
+
+  <article class="card summary-panel ai-summary-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="section-label">AI helper view</p>
+        <h3 class="card-title">Clean Match Data</h3>
+      </div>
+      <span class="soft-badge">Used for scoring</span>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-box">
+        <span class="detail-label">Clean Name</span>
+        <p>{{ ai_report.name or report.name }}</p>
+      </div>
+      <div class="detail-box">
+        <span class="detail-label">Category</span>
+        <p>{{ ai_report.category or "Not guessed" }}</p>
+      </div>
+      <div class="detail-box">
+        <span class="detail-label">Color</span>
+        <p>{{ ai_report.color or "Not guessed" }}</p>
+      </div>
+      <div class="detail-box detail-box-wide">
+        <span class="detail-label">AI Description</span>
+        <p>{{ ai_report.normalized_description or report.description }}</p>
+      </div>
+      <div class="detail-box detail-box-wide">
+        <span class="detail-label">Keywords</span>
+        <div class="keyword-row">
+          {% if ai_report.keywords %}
+            {% for keyword in ai_report.keywords %}
+            <span class="keyword-pill">{{ keyword }}</span>
+            {% endfor %}
+          {% else %}
+          <span class="keyword-pill muted-pill">No extra keywords</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+{% if matches %}
+<section class="results-header-row">
+  <div>
+    <p class="section-label">Best results</p>
+    <h3 class="card-title">Suggested Found Items</h3>
+  </div>
+  <a class="secondary-button" href="{{ url_for('items') }}">Open Found Items Page</a>
+</section>
+
+<section class="items-grid match-grid">
+  {% for match in matches %}
+  <article class="card item-card match-card">
+    <img
+      src="{{ match.item.photo_url }}"
+      alt="Photo of {{ match.item.name }}"
+      class="item-image"
+    />
+
+    <div class="item-details">
+      <div class="match-top-row">
+        <div>
+          <h3>{{ match.item.name }}</h3>
+          <p class="small-text">Match score: {{ match.score }}</p>
+        </div>
+        <span class="match-badge">{{ match.label }}</span>
+      </div>
+
+      <p class="item-description">{{ match.item.description }}</p>
+
+      <div class="detail-grid compact-detail-grid">
+        <div class="detail-box">
+          <span class="detail-label">Found At</span>
+          <p>{{ match.item.found_location }}</p>
+        </div>
+        <div class="detail-box">
+          <span class="detail-label">Found Date</span>
+          <p>{{ match.item.found_date }}</p>
+        </div>
+        <div class="detail-box detail-box-wide">
+          <span class="detail-label">Contact</span>
+          <p>{{ match.item.contact }}</p>
+        </div>
+      </div>
+
+      <div class="reason-panel">
+        <span class="detail-label">Why this matched</span>
+        <div class="keyword-row">
+          {% if match.reasons %}
+            {% for reason in match.reasons %}
+            <span class="keyword-pill">{{ reason }}</span>
+            {% endfor %}
+          {% else %}
+          <span class="keyword-pill muted-pill">A few details looked similar</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% else %}
+<section class="card empty-state empty-state-rich">
+  <p class="section-label">No close result</p>
+  <h3>No strong matches yet</h3>
+  <p class="hero-text">
+    The app could not find a close match right now. That does not always mean
+    the item is not here. A new found item may be added later.
+  </p>
+  <div class="lost-hero-chips">
+    <span class="info-chip">Try a clearer description</span>
+    <span class="info-chip">Check the found items page</span>
+    <span class="info-chip">Try again later</span>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

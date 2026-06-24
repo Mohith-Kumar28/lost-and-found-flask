@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Report Lost Item | Lost & Found{% endblock %}
+{% block content %}
+<section class="hero-card lost-hero-card">
+  <div class="lost-hero-copy">
+    <p class="section-label">Lost item report</p>
+    <h2>Describe what was lost and let the app search smartly</h2>
+    <p class="hero-text">
+      Write the lost item details clearly. The app uses AI to clean the report
+      and then checks the found items to show the best possible matches.
+    </p>
+
+    <div class="lost-hero-chips">
+      <span class="info-chip">Simple form</span>
+      <span class="info-chip">AI cleaned details</span>
+      <span class="info-chip">Suggested matches</span>
+    </div>
+  </div>
+
+  <div class="lost-hero-side">
+    <div class="mini-status-card">
+      <p class="mini-status-label">Match mode</p>
+      <p class="mini-status-value">
+        {% if ai_ready %}AI + simple scoring{% else %}Simple scoring only{% endif %}
+      </p>
+      <p class="small-text">
+        {% if ai_ready %}OpenAI helps clean the lost report before matching.{% else %}
+        The app still works using normal text matching.{% endif %}
+      </p>
+    </div>
+
+    <a class="secondary-button" href="{{ url_for('items') }}">See Found Items</a>
+  </div>
+</section>
+
+<section class="lost-layout-grid">
+  <article class="card form-card lost-form-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="section-label">Step 1</p>
+        <h3 class="card-title">Lost Item Form</h3>
+      </div>
+      <span class="soft-badge">Fill carefully</span>
+    </div>
+
+    <p class="small-text">
+      Better details help the app find better matches. Use easy words like
+      color, size, sticker, brand, bag type, bottle type, and place.
+    </p>
+
+    {% if error %}
+    <div class="message error-message">{{ error }}</div>
+    {% endif %}
+
+    <form action="{{ url_for('lost_report_matches') }}" method="post" class="item-form">
+      <label>
+        Item name
+        <input
+          type="text"
+          name="name"
+          placeholder="Example: Black water bottle"
+          value="{{ form_data.get('name', '') }}"
+          required
+        />
+      </label>
+
+      <label>
+        Description
+        <textarea
+          name="description"
+          rows="5"
+          placeholder="Example: Black bottle with white sticker and metal cap."
+          required
+        >{{ form_data.get('description', '') }}</textarea>
+      </label>
+
+      <div class="two-column-grid">
+        <label>
+          Where was it lost?
+          <input
+            type="text"
+            name="lost_location"
+            placeholder="Example: Library table"
+            value="{{ form_data.get('lost_location', '') }}"
+            required
+          />
+        </label>
+
+        <label>
+          Contact (phone or email)
+          <input
+            type="text"
+            name="contact"
+            placeholder="Example: 9876543210 or kid@example.com"
+            value="{{ form_data.get('contact', '') }}"
+            required
+          />
+        </label>
+
+        <label>
+          Lost date
+          <input
+            type="date"
+            name="lost_date"
+            value="{{ form_data.get('lost_date', '') }}"
+            required
+          />
+        </label>
+      </div>
+
+      <button class="primary-button" type="submit">Find Possible Matches</button>
+    </form>
+  </article>
+
+  <aside class="lost-info-stack">
+    <section class="card info-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="section-label">Step 2</p>
+          <h3 class="card-title">What Happens Next?</h3>
+        </div>
+      </div>
+
+      <div class="step-list">
+        <div class="step-row">
+          <span class="step-number">1</span>
+          <p>Flask reads your lost item details.</p>
+        </div>
+        <div class="step-row">
+          <span class="step-number">2</span>
+          <p>AI cleans the report into simpler match data.</p>
+        </div>
+        <div class="step-row">
+          <span class="step-number">3</span>
+          <p>The app compares it with all found items.</p>
+        </div>
+        <div class="step-row">
+          <span class="step-number">4</span>
+          <p>You see the best possible matches with reasons.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card info-panel contrast-panel">
+      <p class="section-label">Tips</p>
+      <h3 class="card-title">Write Better Clues</h3>
+      <ul class="clean-list">
+        <li>Mention the color clearly.</li>
+        <li>Mention stickers, straps, covers, caps, or labels.</li>
+        <li>Write the exact place if you remember it.</li>
+        <li>Use simple school words instead of long sentences.</li>
+      </ul>
+    </section>
+  </aside>
+</section>
+{% endblock %}
