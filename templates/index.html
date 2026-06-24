@@ -17,8 +17,9 @@
 <section class="card form-card">
   <h3 class="card-title">Found Item Form</h3>
   <p class="small-text">
-    {% if using_cloudinary %}Cloudinary is ready for image upload.{% else %}Add
-    Cloudinary keys to save images.{% endif %}
+    {% if using_cloudinary and ai_ready %}Cloudinary and OpenAI are ready.{% elif
+    using_cloudinary %}Cloudinary is ready. Add `OPENAI_API_KEY` to use AI
+    autofill.{% else %}Add Cloudinary keys to save images.{% endif %}
   </p>
 
   {% if error %}
@@ -31,6 +32,8 @@
     enctype="multipart/form-data"
     class="item-form"
   >
+    <input type="hidden" name="photo_url" value="{{ form_data.get('photo_url', '') }}" />
+
     <label>
       Item name
       <input
@@ -65,6 +68,17 @@
       </label>
 
       <label>
+        Contact (phone or email)
+        <input
+          type="text"
+          name="contact"
+          placeholder="Example: 9876543210 or kid@example.com"
+          value="{{ form_data.get('contact', '') }}"
+          required
+        />
+      </label>
+
+      <label>
         Found date
         <input
           type="date"
@@ -77,10 +91,85 @@
 
     <label>
       Upload a photo
-      <input type="file" name="photo" accept="image/*" required />
+      <input type="file" name="photo" accept="image/*" />
     </label>
+
+    <div class="form-actions-inline">
+      <button
+        class="secondary-button"
+        type="button"
+        id="autofill-button"
+        {% if not using_cloudinary or not ai_ready %}disabled{% endif %}
+      >
+        Auto Fill With AI
+      </button>
+      <p class="small-text" id="ai-message">
+        AI can fill the name and description from the image. You can still edit
+        the text before saving.
+      </p>
+    </div>
 
     <button class="primary-button" type="submit">Save item</button>
   </form>
 </section>
+
+<script>
+  const itemForm = document.querySelector(".item-form");
+  const photoInput = itemForm.querySelector('input[name="photo"]');
+  const photoUrlInput = itemForm.querySelector('input[name="photo_url"]');
+  const autofillButton = document.getElementById("autofill-button");
+  const aiMessage = document.getElementById("ai-message");
+
+  photoInput.addEventListener("change", () => {
+    if (photoUrlInput.value) {
+      photoUrlInput.value = "";
+      aiMessage.textContent =
+        "Photo changed. Click Auto Fill With AI again if you want new suggestions.";
+    }
+  });
+
+  if (autofillButton) {
+    autofillButton.addEventListener("click", async () => {
+      if (!photoInput.files.length) {
+        aiMessage.textContent = "Please choose an image first.";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("photo", photoInput.files[0]);
+
+      autofillButton.disabled = true;
+      aiMessage.textContent = "Reading the image with AI...";
+
+      try {
+        const response = await fetch("{{ url_for('autofill_item') }}", {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "AI autofill failed.");
+        }
+
+        itemForm.elements.name.value = result.name || itemForm.elements.name.value;
+        itemForm.elements.description.value =
+          result.description || itemForm.elements.description.value;
+
+        if (result.found_location) {
+          itemForm.elements.found_location.value = result.found_location;
+        }
+
+        photoUrlInput.value = result.photo_url || "";
+        aiMessage.textContent =
+          result.message || "AI filled some fields. You can still edit them.";
+      } catch (error) {
+        aiMessage.textContent = error.message;
+      } finally {
+        autofillButton.disabled = false;
+      }
+    });
+  }
+</script>
 {% endblock %}

@@ -1,14 +1,16 @@
 import os
+import json
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
 import cloudinary
 import cloudinary.uploader
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, jsonify, redirect, render_template, request, url_for
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
-from sqlalchemy import or_
+from openai import OpenAI
+from sqlalchemy import inspect, or_
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -40,6 +42,7 @@ class Item(db.Model):
     description = db.Column(db.Text, nullable=False)
     found_location = db.Column(db.String(120), nullable=False, index=True)
     found_date = db.Column(db.String(10), nullable=False, index=True)
+    contact = db.Column(db.String(160), nullable=False, default="")
     photo_url = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
 
@@ -48,6 +51,23 @@ def setup_app():
     """Create the database table we need."""
     with app.app_context():
         db.create_all()
+        ensure_item_columns()
+
+
+def ensure_item_columns():
+    """Add the contact column if an older table does not have it yet."""
+    inspector = inspect(db.engine)
+
+    if "item" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("item")}
+
+    if "contact" not in columns:
+        with db.engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE item ADD COLUMN contact VARCHAR(160) DEFAULT ''"
+            )
 
 
 def cloudinary_ready():
@@ -57,6 +77,11 @@ def cloudinary_ready():
         and os.environ.get("CLOUDINARY_API_KEY")
         and os.environ.get("CLOUDINARY_API_SECRET")
     )
+
+
+def openai_ready():
+    """Check if the OpenAI key exists."""
+    return bool(os.environ.get("OPENAI_API_KEY"))
 
 
 def allowed_file(filename):
@@ -85,6 +110,69 @@ def upload_photo(photo):
     return result["secure_url"]
 
 
+def normalize_ai_data(data):
+    """Clean the structured AI response before using it in the form."""
+    return {
+        "name": str(data.get("name", "")).strip(),
+        "description": str(data.get("description", "")).strip(),
+        "found_location": str(data.get("found_location", "")).strip(),
+    }
+
+
+def analyze_image_with_ai(photo_url):
+    """Ask OpenAI to suggest a few fields from the uploaded image."""
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    model_name = os.environ.get("OPENAI_VISION_MODEL", "gpt-4.1")
+    prompt = """
+Look at this photo of one found item.
+Extract simple item details from the image.
+Keep the name short.
+Keep the description to 1 or 2 simple sentences.
+If the image does not show the location, use an empty string for found_location.
+""".strip()
+
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": photo_url},
+                    },
+                ],
+            }
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "found_item_details",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "description": {"type": "string"},
+                        "found_location": {"type": "string"},
+                    },
+                    "required": ["name", "description", "found_location"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        max_tokens=250,
+    )
+
+    message = response.choices[0].message
+
+    if getattr(message, "refusal", None):
+        raise ValueError("The AI refused to analyze this image.")
+
+    return normalize_ai_data(json.loads(message.content or "{}"))
+
+
 def render_items_page(message=""):
     """Render the items page with search and filters."""
     search = request.args.get("search", "").strip()
@@ -100,6 +188,7 @@ def render_items_page(message=""):
                 Item.name.ilike(like_text),
                 Item.description.ilike(like_text),
                 Item.found_location.ilike(like_text),
+                Item.contact.ilike(like_text),
             )
         )
 
@@ -127,6 +216,41 @@ def index():
         error=None,
         form_data={},
         using_cloudinary=cloudinary_ready(),
+        ai_ready=openai_ready(),
+    )
+
+
+@app.route("/autofill", methods=["POST"])
+def autofill_item():
+    """Read an uploaded image with AI and return suggested values."""
+    photo = request.files.get("photo")
+
+    if not photo or not photo.filename:
+        return jsonify({"error": "Please choose an image first."}), 400
+
+    if not allowed_file(photo.filename):
+        return jsonify({"error": "Please upload a valid image."}), 400
+
+    if not cloudinary_ready():
+        return jsonify({"error": "Please add Cloudinary keys first."}), 400
+
+    if not openai_ready():
+        return jsonify({"error": "Please add OPENAI_API_KEY first."}), 400
+
+    try:
+        photo_url = upload_photo(photo)
+        ai_data = analyze_image_with_ai(photo_url)
+    except Exception:
+        return jsonify({"error": "AI could not read this image right now."}), 500
+
+    return jsonify(
+        {
+            "message": "AI filled some fields. You can still change them.",
+            "photo_url": photo_url,
+            "name": ai_data["name"],
+            "description": ai_data["description"],
+            "found_location": ai_data["found_location"],
+        }
     )
 
 
@@ -136,54 +260,74 @@ def submit_item():
     description = request.form.get("description", "").strip()
     found_location = request.form.get("found_location", "").strip()
     found_date = request.form.get("found_date", "").strip()
+    contact = request.form.get("contact", "").strip()
+    saved_photo_url = request.form.get("photo_url", "").strip()
     photo = request.files.get("photo")
     form_data = {
         "name": name,
         "description": description,
         "found_location": found_location,
         "found_date": found_date,
+        "contact": contact,
+        "photo_url": saved_photo_url,
     }
 
     # Simple validation for beginners.
-    if not name or not description or not found_location or not found_date or not photo:
+    if (
+        not name
+        or not description
+        or not found_location
+        or not found_date
+        or not contact
+        or (not saved_photo_url and not photo)
+    ):
         return (
             render_template(
                 "index.html",
-                error="Please fill every field and upload a photo.",
+                error="Please fill every field and add a photo.",
                 form_data=form_data,
                 using_cloudinary=cloudinary_ready(),
+                ai_ready=openai_ready(),
             ),
             400,
         )
 
-    if not photo.filename or not allowed_file(photo.filename):
-        return (
-            render_template(
-                "index.html",
-                error="Please upload a valid image.",
-                form_data=form_data,
-                using_cloudinary=cloudinary_ready(),
-            ),
-            400,
-        )
+    if saved_photo_url:
+        photo_url = saved_photo_url
+    else:
+        if not photo.filename or not allowed_file(photo.filename):
+            return (
+                render_template(
+                    "index.html",
+                    error="Please upload a valid image.",
+                    form_data=form_data,
+                    using_cloudinary=cloudinary_ready(),
+                    ai_ready=openai_ready(),
+                ),
+                400,
+            )
 
-    if not cloudinary_ready():
-        return (
-            render_template(
-                "index.html",
-                error="Please add Cloudinary keys first.",
-                form_data=form_data,
-                using_cloudinary=cloudinary_ready(),
-            ),
-            400,
-        )
+        if not cloudinary_ready():
+            return (
+                render_template(
+                    "index.html",
+                    error="Please add Cloudinary keys first.",
+                    form_data=form_data,
+                    using_cloudinary=cloudinary_ready(),
+                    ai_ready=openai_ready(),
+                ),
+                400,
+            )
+
+        photo_url = upload_photo(photo)
 
     item = Item(
         name=name,
         description=description,
         found_location=found_location,
         found_date=found_date,
-        photo_url=upload_photo(photo),
+        contact=contact,
+        photo_url=photo_url,
     )
 
     db.session.add(item)
@@ -217,15 +361,17 @@ def edit_item(item_id):
     description = request.form.get("description", "").strip()
     found_location = request.form.get("found_location", "").strip()
     found_date = request.form.get("found_date", "").strip()
+    contact = request.form.get("contact", "").strip()
     photo = request.files.get("photo")
 
-    if not name or not description or not found_location or not found_date:
+    if not name or not description or not found_location or not found_date or not contact:
         return redirect(url_for("items"))
 
     item.name = name
     item.description = description
     item.found_location = found_location
     item.found_date = found_date
+    item.contact = contact
 
     if photo and photo.filename:
         if not allowed_file(photo.filename):

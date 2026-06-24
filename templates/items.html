@@ -70,6 +70,7 @@
       <h3>{{ item.name }}</h3>
       <p class="item-description">{{ item.description }}</p>
       <p><strong>Found at:</strong> {{ item.found_location }}</p>
+      <p><strong>Contact:</strong> {{ item.contact or "Not added yet" }}</p>
       <p><strong>Date:</strong> {{ item.found_date }}</p>
       <p class="small-text">{{ item.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
 
@@ -124,6 +125,16 @@
             type="text"
             name="found_location"
             value="{{ item.found_location }}"
+            required
+          />
+        </label>
+
+        <label>
+          Contact (phone or email)
+          <input
+            type="text"
+            name="contact"
+            value="{{ item.contact }}"
             required
           />
         </label>

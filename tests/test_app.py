@@ -25,11 +25,13 @@ class LostFoundAppTests(unittest.TestCase):
         self.original_cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME")
         self.original_api_key = os.environ.get("CLOUDINARY_API_KEY")
         self.original_api_secret = os.environ.get("CLOUDINARY_API_SECRET")
+        self.original_openai_api_key = os.environ.get("OPENAI_API_KEY")
 
         os.environ["DATABASE_URL"] = f"sqlite:///{temp_path / 'test.db'}"
         os.environ["CLOUDINARY_CLOUD_NAME"] = "demo-cloud"
         os.environ["CLOUDINARY_API_KEY"] = "demo-key"
         os.environ["CLOUDINARY_API_SECRET"] = "demo-secret"
+        os.environ["OPENAI_API_KEY"] = "demo-openai-key"
 
         self.app_module = load_fresh_app_module()
         self.app_module.app.config["TESTING"] = True
@@ -64,9 +66,14 @@ class LostFoundAppTests(unittest.TestCase):
         else:
             os.environ["CLOUDINARY_API_SECRET"] = self.original_api_secret
 
+        if self.original_openai_api_key is None:
+            os.environ.pop("OPENAI_API_KEY", None)
+        else:
+            os.environ["OPENAI_API_KEY"] = self.original_openai_api_key
+
         self.temp_dir.cleanup()
 
-    def submit_item(self, name, description, found_location, found_date):
+    def submit_item(self, name, description, found_location, found_date, contact):
         """Helper to keep the test code short and easy to read."""
         return self.client.post(
             "/submit",
@@ -75,6 +82,7 @@ class LostFoundAppTests(unittest.TestCase):
                 "description": description,
                 "found_location": found_location,
                 "found_date": found_date,
+                "contact": contact,
                 "photo": (io.BytesIO(b"fake image bytes"), "item.png"),
             },
             content_type="multipart/form-data",
@@ -93,6 +101,7 @@ class LostFoundAppTests(unittest.TestCase):
             "Blue notebook with science notes inside.",
             "Room 12",
             "2026-06-19",
+            "9876543210",
         )
 
         self.assertEqual(response.status_code, 200)
@@ -102,6 +111,7 @@ class LostFoundAppTests(unittest.TestCase):
             saved_items = self.app_module.Item.query.all()
             self.assertEqual(len(saved_items), 1)
             self.assertEqual(saved_items[0].found_location, "Room 12")
+            self.assertEqual(saved_items[0].contact, "9876543210")
             self.assertEqual(saved_items[0].photo_url, "https://example.com/item.png")
 
     def test_search_and_filter_work_on_home_page(self):
@@ -110,15 +120,19 @@ class LostFoundAppTests(unittest.TestCase):
             "Science notes inside.",
             "Room 12",
             "2026-06-19",
+            "blue@example.com",
         )
         self.submit_item(
             "Red bottle",
             "Sports bottle.",
             "Library",
             "2026-06-20",
+            "9999999999",
         )
 
-        response = self.client.get("/items?search=Blue&location=Room+12&found_date=2026-06-19")
+        response = self.client.get(
+            "/items?search=blue@example.com&location=Room+12&found_date=2026-06-19"
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Blue notebook", response.data)
@@ -130,6 +144,7 @@ class LostFoundAppTests(unittest.TestCase):
             "Science notes inside.",
             "Room 12",
             "2026-06-19",
+            "9876543210",
         )
 
         with self.app_module.app.app_context():
@@ -143,6 +158,7 @@ class LostFoundAppTests(unittest.TestCase):
                 "description": "Updated description.",
                 "found_location": "Lab",
                 "found_date": "2026-06-21",
+                "contact": "green@example.com",
             },
             content_type="multipart/form-data",
             follow_redirects=True,
@@ -155,6 +171,7 @@ class LostFoundAppTests(unittest.TestCase):
             edited_item = self.app_module.db.session.get(self.app_module.Item, item_id)
             self.assertEqual(edited_item.name, "Green notebook")
             self.assertEqual(edited_item.found_location, "Lab")
+            self.assertEqual(edited_item.contact, "green@example.com")
 
         delete_response = self.client.post(
             f"/items/{item_id}/delete",
@@ -166,6 +183,49 @@ class LostFoundAppTests(unittest.TestCase):
 
         with self.app_module.app.app_context():
             self.assertEqual(self.app_module.Item.query.count(), 0)
+
+    def test_autofill_route_returns_ai_suggestions(self):
+        with mock.patch.object(
+            self.app_module,
+            "analyze_image_with_ai",
+            return_value={
+                "name": "Blue water bottle",
+                "description": "A blue bottle with a black cap.",
+                "found_location": "",
+            },
+        ):
+            response = self.client.post(
+                "/autofill",
+                data={"photo": (io.BytesIO(b"fake image bytes"), "item.png")},
+                content_type="multipart/form-data",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        json_data = response.get_json()
+        self.assertEqual(json_data["name"], "Blue water bottle")
+        self.assertEqual(json_data["photo_url"], "https://example.com/item.png")
+
+    def test_submit_item_can_use_ai_photo_url(self):
+        response = self.client.post(
+            "/submit",
+            data={
+                "name": "AI bottle",
+                "description": "AI found a blue bottle in the image.",
+                "found_location": "Hallway",
+                "found_date": "2026-06-22",
+                "contact": "kid@example.com",
+                "photo_url": "https://example.com/ai-item.png",
+            },
+            follow_redirects=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"AI bottle", response.data)
+
+        with self.app_module.app.app_context():
+            saved_item = self.app_module.Item.query.first()
+            self.assertEqual(saved_item.photo_url, "https://example.com/ai-item.png")
+            self.assertEqual(saved_item.contact, "kid@example.com")
 
 
 if __name__ == "__main__":
