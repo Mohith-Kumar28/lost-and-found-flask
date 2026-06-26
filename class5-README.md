@@ -451,7 +451,7 @@ This is the kind of HTML used on the add found-item page:
 
 ```html
 <input type="file" name="photo" accept="image/*" />
-<button type="button">Auto Fill With AI</button>
+<button type="button">Auto Fill With AI.</button>
 <input type="text" name="name" />
 <textarea name="description"></textarea>
 <input type="text" name="contact" />
